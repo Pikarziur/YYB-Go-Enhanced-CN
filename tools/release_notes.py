@@ -72,10 +72,10 @@ def render_release_notes(
 - 安装完成后重启设备，并确认 Magisk 模块状态、YYB 服务和控制台均正常。
 - 如遇兼容问题，请携带版本号、Android 版本、Magisk 版本和模块日志提交 Issue。"""
     else:
-        image = f"docker.io/yyb-go-enhanced:{version}"
+        image = f"ghcr.io/{repository.lower()}:{version}"
         downloads = f"""## 下载与安装
 
-- Docker：镜像发布在 Docker Hub，使用 `{image}`（linux/arm64），或继续使用 `latest`。
+- Docker：镜像发布在 GitHub Packages，命名空间与仓库一致：`{image}`（linux/arm64），或继续使用 `latest`。
 - Windows：下载 `yyb-go-v{version}-windows-amd64.zip` 完整压缩包；已有资源目录时可只替换 `yyb-go-windows-amd64.exe` 独立程序。
 - 完成下载后使用 `checksums.txt` 校验文件完整性。"""
         upgrade = """## 升级提示

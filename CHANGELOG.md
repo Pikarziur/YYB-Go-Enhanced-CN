@@ -14,7 +14,7 @@
 - LongLink 候选上限由 6 提升至 12，确保合并后的候选不被截断。
 - ShortLink 发送改为按剩余候选分摊等待预算，此前单一不可达端点会耗尽整个预算、导致后续可达端点来不及尝试（表现为 `context deadline exceeded`）；ShortLink 候选上限为 6。
 - ShortLink 与整体请求超时由 8 秒提升至 15 秒，登录超时由 30 秒提升至 45 秒；HTTP 层与命令行默认值同步调整。
-- 发布流程改为仅手动触发：二进制只构建 windows/amd64，容器镜像只构建 linux/arm64 并推送 Docker Hub，移除 Magisk 产物与 ghcr 推送。
+- 发布流程改为仅手动触发：二进制只构建 windows/amd64，容器镜像只构建 linux/arm64 并推送 GitHub Container Registry（ghcr，命名空间与仓库一致），移除 Magisk 产物。
 - 补充候选合并去重、域名回退、HTTPDNS 失败回退、ShortLink 端口约束、候选预算共享与默认超时覆盖候选数的回归测试。
 
 ## v0.2.30 - 2026-10-14

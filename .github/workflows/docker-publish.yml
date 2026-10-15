@@ -1,4 +1,4 @@
-name: Build and Publish arm64 Docker Image
+name: Build and Publish arm64 Image to GHCR
 
 on:
   # Manual trigger only: pushing to main or pushing a tag must not start a build.
@@ -6,23 +6,15 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: '镜像 Tag 标签 (例如: latest, 0.2.32)'
+        description: '镜像 Tag 标签 (例如: latest, 0.2.33)'
         required: false
         default: 'latest'
-        type: string
-      dockerhub_username:
-        description: 'Docker Hub 用户名'
-        required: false
-        default: '${{ github.repository_owner }}'
-        type: string
-      dockerhub_image:
-        description: 'Docker Hub 镜像名 (不含 tag)'
-        required: false
-        default: 'yyb-go-enhanced'
         type: string
 
 permissions:
   contents: read
+  # Required to push to GitHub Container Registry.
+  packages: write
 
 concurrency:
   group: docker-arm64-${{ github.ref }}
@@ -50,16 +42,11 @@ jobs:
         id: meta
         env:
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
-          INPUT_DOCKERHUB_IMAGE: ${{ inputs.dockerhub_image }}
         run: |
           set -Eeuo pipefail
-          image_name="$INPUT_DOCKERHUB_IMAGE"
-          [[ -n "$image_name" ]] || image_name="yyb-go-enhanced"
-          [[ "$image_name" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || {
-            echo "Invalid Docker Hub image name: $image_name" >&2
-            exit 2
-          }
-          image="docker.io/$image_name"
+          # GHCR keeps the lowercase owner/repo form, e.g.
+          # ghcr.io/pikarziur/yyb-go-enhanced-cn
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
 
           image_tag="${INPUT_IMAGE_TAG:-latest}"
           [[ "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || {
@@ -101,19 +88,14 @@ jobs:
             sleep $((attempt * 10))
           done
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         env:
-          DOCKERHUB_USERNAME: ${{ inputs.dockerhub_username || github.repository_owner }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -Eeuo pipefail
-          if [[ -z "${DOCKERHUB_TOKEN:-}" ]]; then
-            echo "::error::Missing secret DOCKERHUB_TOKEN. Add it under Settings > Secrets and variables > Actions." >&2
-            exit 1
-          fi
           for attempt in 1 2 3; do
-            if printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io \
-              -u "$DOCKERHUB_USERNAME" --password-stdin; then
+            if printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
+              -u "$GITHUB_ACTOR" --password-stdin; then
               exit 0
             fi
             [[ "$attempt" == 3 ]] && exit 1
