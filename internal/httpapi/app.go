@@ -113,7 +113,11 @@ func NewApp(cfg Config) (*App, error) {
 		cfg.DBFilename = DefaultDBFilename
 	}
 	if cfg.RequestTimeout == 0 {
-		cfg.RequestTimeout = 8 * time.Second
+		// The ShortLink step shares this budget across every candidate endpoint
+		// (send0RTT divides it per candidate), so 8s leaves a reachable endpoint
+		// too little time once resolver and HTTPDNS answers are merged. Keep this
+		// in sync with protocol.DefaultConfig().ShortlinkTimeout.
+		cfg.RequestTimeout = 15 * time.Second
 	}
 	if cfg.AvatarTimeout == 0 {
 		cfg.AvatarTimeout = 10 * time.Second

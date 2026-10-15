@@ -75,11 +75,20 @@ func httpPost(path, host string, body []byte) []byte {
 
 func send0RTT(ctx context.Context, targets []Target, entry pskEntry, recvKey, envelope []byte, timeout time.Duration, tcpProxy string, fallbackDirect bool) ([]byte, []byte, error) {
 	var last error
-	for _, t := range targets {
+	for i, t := range targets {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		code, resp, err := send0RTTRaw(ctx, t, entry, recvKey, envelope, timeout, tcpProxy, fallbackDirect)
+		// Split the remaining budget across the remaining targets. Without this,
+		// one silent endpoint burns the whole budget on its own and every later
+		// reachable endpoint is never reached before the deadline expires.
+		attemptCtx := ctx
+		cancelAttempt := func() {}
+		if deadline, ok := ctx.Deadline(); ok && len(targets)-i > 0 {
+			attemptCtx, cancelAttempt = context.WithTimeout(ctx, time.Until(deadline)/time.Duration(len(targets)-i))
+		}
+		code, resp, err := send0RTTRaw(attemptCtx, t, entry, recvKey, envelope, timeout, tcpProxy, fallbackDirect)
+		cancelAttempt()
 		if err == nil && (len(code) > 0 || len(resp) > 0) {
 			return code, resp, nil
 		}

@@ -36,11 +36,16 @@ var longlinkFallbackPorts = []int{443, 8080, 80}
 var shortlinkFallbackPorts = []int{80}
 
 // longlinkCandidateLimit caps how many LongLink endpoints one login attempt may
-// probe. The upstream default of 6 truncates the merged pool too aggressively
-// once resolver answers are prepended, so the limit is raised: the per-candidate
-// budget in tryLonglinkCandidates divides the remaining login time by the number
-// of remaining candidates, which keeps a dead endpoint from eating the timeout.
+// probe. The per-candidate budget in tryLonglinkCandidates divides the remaining
+// login time by the number of remaining candidates, which keeps a dead endpoint
+// from eating the timeout.
 const longlinkCandidateLimit = 12
+
+// shortlinkCandidateLimit caps the ShortLink endpoint list. It is deliberately
+// small: send0RTT shares one budget across all candidates, so a long list leaves
+// each reachable endpoint too little time to complete a 0-RTT round trip. The
+// resolver answers are ordered first, so the reachable ones survive the cut.
+const shortlinkCandidateLimit = 6
 
 type Target struct {
 	IP   string `json:"ip"`
@@ -320,6 +325,9 @@ func getShortlinkTargets(ctx context.Context, timeout, cacheTTL time.Duration) [
 	merged := mergeTargets(hostTargets, dnsTargets)
 	if len(merged) == 0 {
 		return []Target{{IP: shortlinkFallbackIP, Port: 80}}
+	}
+	if len(merged) > shortlinkCandidateLimit {
+		merged = merged[:shortlinkCandidateLimit]
 	}
 	return merged
 }

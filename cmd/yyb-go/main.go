@@ -120,7 +120,7 @@ func main() {
 		DBFilename:        *dbFilename,
 		TCPProxy:          *tcpProxy,
 		SessionTTL:        30 * time.Minute,
-		RequestTimeout:    8 * time.Second,
+		RequestTimeout:    15 * time.Second,
 		AvatarTimeout:     10 * time.Second,
 		ScanTimeout:       180 * time.Second,
 		QRSessionTTL:      5 * time.Minute,

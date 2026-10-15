@@ -24,8 +24,11 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		ShortlinkTimeout:        8 * time.Second,
-		LoginTimeout:            30 * time.Second,
+		// ShortlinkTimeout must cover the whole ShortLink candidate list. The
+		// resolver and HTTPDNS answers are merged, so this budget is shared by
+		// several endpoints; send0RTT divides it per candidate.
+		ShortlinkTimeout:        15 * time.Second,
+		LoginTimeout:            45 * time.Second,
 		SessionTTL:              30 * time.Minute,
 		DNSCacheTTL:             30 * time.Minute,
 		MaxShortlinkConcurrency: 1000,
