@@ -1,3 +1,5 @@
+原作者的不适合我的网络使用，所以我自己用ai修改了一下（非盗用，感谢原作者的付出，仅个人使用，有bug还是找原作者版本）
+
 # YYB Go Enhanced
 
 [![给项目点个 Star](https://img.shields.io/github/stars/525815266/YYB-Go-Enhanced?style=social&label=Star)](https://github.com/525815266/YYB-Go-Enhanced)
