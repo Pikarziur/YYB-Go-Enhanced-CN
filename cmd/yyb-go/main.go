@@ -18,7 +18,10 @@ import (
 
 func main() {
 	envFile := flag.String("env-file", "", "dotenv file; defaults to .env beside executable, then working directory")
-	host := flag.String("host", "127.0.0.1", "listen host")
+	// Default listen host is 0.0.0.0 so a double-clicked single-file build is
+// reachable from the phone or tablet on the same LAN without extra flags.
+// Pass -host 127.0.0.1 to keep the panel reachable from this machine only.
+host := flag.String("host", "0.0.0.0", "listen host")
 	port := flag.Int("port", 8000, "listen port")
 	resourceRoot := flag.String("resource-root", filepath.Join(".", "resource"), "runtime resource directory")
 	dbFilename := flag.String("db", httpapi.DefaultDBFilename, "SQLite database filename under resource/db")
