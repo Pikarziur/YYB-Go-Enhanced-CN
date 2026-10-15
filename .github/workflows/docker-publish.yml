@@ -1,10 +1,12 @@
 name: Build and Publish arm64 Docker Image
 
 on:
+  # Manual trigger only: pushing to main or pushing a tag must not start a build.
+  # Use Actions -> this workflow -> Run workflow.
   workflow_dispatch:
     inputs:
       image_tag:
-        description: '镜像 Tag 标签 (例如: latest, v0.2.30)'
+        description: '镜像 Tag 标签 (例如: latest, 0.2.32)'
         required: false
         default: 'latest'
         type: string
@@ -18,20 +20,6 @@ on:
         required: false
         default: 'yyb-go-enhanced'
         type: string
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-    paths:
-      - 'Dockerfile'
-      - 'go.mod'
-      - 'go.sum'
-      - 'VERSION'
-      - 'cmd/**'
-      - 'internal/**'
-      - 'resource/**'
-      - '.github/workflows/docker-publish.yml'
 
 permissions:
   contents: read
@@ -72,25 +60,15 @@ jobs:
             exit 2
           }
           image="docker.io/$image_name"
-          tags=()
 
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            image_tag="${INPUT_IMAGE_TAG:-latest}"
-            [[ "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || {
-              echo "Invalid image tag: $image_tag" >&2
-              exit 2
-            }
-            tags+=("$image:$image_tag")
-            if [[ "$image_tag" != "latest" ]]; then
-              tags+=("$image:latest")
-            fi
-          elif [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            tags+=("$image:$version")
-            [[ "$version" == *-* ]] || tags+=("$image:latest")
-          else
-            branch_tag="${GITHUB_REF_NAME//\//-}"
-            tags+=("$image:$branch_tag" "$image:latest")
+          image_tag="${INPUT_IMAGE_TAG:-latest}"
+          [[ "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || {
+            echo "Invalid image tag: $image_tag" >&2
+            exit 2
+          }
+          tags=("$image:$image_tag")
+          if [[ "$image_tag" != "latest" ]]; then
+            tags+=("$image:latest")
           fi
 
           {
@@ -153,11 +131,7 @@ jobs:
             [[ -n "$tag" ]] && tag_args+=(--tag "$tag")
           done
 
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            build_version="${GITHUB_REF_NAME#v}"
-          else
-            build_version="$(tr -d '[:space:]' < VERSION)"
-          fi
+          build_version="$(tr -d '[:space:]' < VERSION)"
 
           for attempt in 1 2 3; do
             if docker buildx build \

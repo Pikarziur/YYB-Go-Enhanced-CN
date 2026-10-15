@@ -52,7 +52,13 @@ class ReleaseNotesTests(unittest.TestCase):
         )
         self.assertIn("## 本次更新", notes)
         self.assertIn("修复登录问题", notes)
-        self.assertIn("yyb-go-v1.2.3-<平台>-<架构>", notes)
+        # Release notes only cover the artifacts this fork builds: a windows/amd64
+        # binary and a linux/arm64 image pushed to Docker Hub.
+        self.assertIn("yyb-go-v1.2.3-windows-amd64.zip", notes)
+        self.assertIn("yyb-go-windows-amd64.exe", notes)
+        self.assertIn("docker.io/yyb-go-enhanced:1.2.3", notes)
+        self.assertNotIn("ghcr.io", notes)
+        self.assertNotIn("magisk", notes.lower())
         self.assertIn("checksums.txt", notes)
         self.assertIn("owner/repo/blob/v1.2.3/CHANGELOG.md", notes)
 

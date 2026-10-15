@@ -1,10 +1,12 @@
 name: windows-amd64 二进制构建与发布
 
 on:
+  # Manual trigger only: pushing to main or pushing a tag must not start a build.
+  # Use Actions -> this workflow -> Run workflow.
   workflow_dispatch:
     inputs:
       version:
-        description: '发布版本号 (例如 0.2.30，留空则读取 VERSION 文件)'
+        description: '发布版本号 (例如 0.2.32，留空则读取 VERSION 文件)'
         required: false
         type: string
       publish_release:
@@ -12,23 +14,6 @@ on:
         required: false
         default: true
         type: boolean
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-    paths:
-      - 'go.mod'
-      - 'go.sum'
-      - 'VERSION'
-      - 'cmd/**'
-      - 'internal/**'
-      - 'resource/**'
-      - 'Dockerfile'
-      - 'tools/release_notes.py'
-      - 'tests/test_release_notes.py'
-      - 'CHANGELOG.md'
-      - '.github/workflows/release.yml'
 
 permissions:
   contents: write
@@ -62,27 +47,18 @@ jobs:
           INPUT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
         run: |
           set -Eeuo pipefail
-          publish=false
-
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            tag="$GITHUB_REF_NAME"
-            publish=true
-          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${INPUT_VERSION:-}" ]]; then
+          # Manual dispatch only: an explicit version input wins, otherwise fall
+          # back to the VERSION file so the repo stays the single source.
+          if [[ -n "${INPUT_VERSION:-}" ]]; then
             version="$INPUT_VERSION"
-            tag="v$version"
-            publish="${INPUT_PUBLISH_RELEASE:-true}"
-          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            version="$(tr -d '[:space:]' < VERSION)"
-            tag="v$version"
-            publish="${INPUT_PUBLISH_RELEASE:-true}"
           else
             version="$(tr -d '[:space:]' < VERSION)"
-            tag=""
           fi
+          tag="v$version"
+          publish="${INPUT_PUBLISH_RELEASE:-true}"
 
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
-            echo "版本号必须是 SemVer 格式（例如 0.2.30 或 0.2.30-rc.1）：$version" >&2
+            echo "版本号必须是 SemVer 格式（例如 0.2.32 或 0.2.32-rc.1）：$version" >&2
             exit 2
           }
 
