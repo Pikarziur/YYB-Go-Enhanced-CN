@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>代理设置 - YYB Go</title>
+  <link rel="stylesheet" href="/static/css/auth.css?v=20260921-ui">
+  <link rel="stylesheet" href="/static/css/platform.css?v=20261001-compact">
+  <style>
+    .proxy-page { max-width:1240px; }
+    .proxy-page .page-title { align-items:center; }
+    .page-actions,.profile-actions,.proxy-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .profile-band { margin-bottom:18px; border:1px solid var(--line); border-radius:var(--radius); background:white; overflow:hidden; }
+    .profile-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:15px 18px; border-bottom:1px solid var(--line); background:#f8fafb; }
+    .profile-head h2 { margin:0; font-size:15px; }
+    .profile-head p { margin:3px 0 0; color:var(--muted); font-size:12px; }
+    .profile-form { display:grid; grid-template-columns:minmax(150px,1fr) minmax(130px,.8fr) minmax(150px,.9fr) minmax(180px,1.2fr) auto; gap:12px; align-items:end; padding:16px 18px; }
+    .profile-form .field { min-width:0; margin:0; }
+    .profile-form .wide { grid-column:span 2; }
+    .profile-feedback { min-height:20px; padding:0 18px 14px; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+    .profile-feedback.ok,.proxy-feedback.ok { color:var(--ok); }
+    .profile-feedback.error,.proxy-feedback.error { color:var(--danger); }
+    .proxy-workspace { min-height:620px; display:grid; grid-template-columns:minmax(250px,300px) minmax(0,1fr); overflow:hidden; border:1px solid var(--line); border-radius:var(--radius); background:white; }
+    .proxy-accounts { min-width:0; display:grid; grid-template-rows:auto minmax(0,1fr); border-right:1px solid var(--line); background:#f8fafb; }
+    .proxy-list-head { padding:16px; border-bottom:1px solid var(--line); }
+    .proxy-list-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:11px; }
+    .proxy-list-title strong { font-size:14px; }
+    .proxy-list-title span { color:var(--muted); font-size:12px; }
+    .proxy-list { min-height:0; overflow:auto; }
+    .proxy-account { width:100%; min-height:72px; display:grid; grid-template-columns:38px minmax(0,1fr) auto; align-items:center; gap:10px; padding:11px 14px; border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); text-align:left; cursor:pointer; }
+    .proxy-account:hover,.proxy-account[aria-pressed="true"] { background:white; }
+    .proxy-account[aria-pressed="true"] { box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--brand) 22%,transparent); }
+    .proxy-account-avatar { width:38px; height:38px; display:grid; place-items:center; overflow:hidden; border-radius:50%; background:#edf1f4; color:var(--muted); font-weight:750; }
+    .proxy-account-avatar img { width:100%; height:100%; object-fit:cover; }
+    .proxy-account-copy { min-width:0; }
+    .proxy-account-copy strong,.proxy-account-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .proxy-account-copy strong { font-size:13px; }
+    .proxy-account-copy small { margin-top:4px; color:var(--muted); font-size:11px; }
+    .proxy-mode-badge { display:inline-flex; align-items:center; min-height:24px; padding:3px 7px; border-radius:999px; background:#eef1f4; color:var(--muted); font-size:11px; white-space:nowrap; }
+    .proxy-mode-badge.static { background:#eaf3ff; color:#205fa8; }
+    .proxy-mode-badge.api { background:#fff3df; color:#9a5b00; }
+    .proxy-mode-badge.short { background:#fff3df; color:#9a5b00; }
+    .proxy-mode-badge.profile { background:#eaf7f1; color:#18794e; }
+    .proxy-mode-badge.error { background:#fff5f4; color:var(--danger); }
+    .proxy-list-empty { padding:32px 16px; color:var(--muted); text-align:center; }
+    .proxy-skeleton { height:72px; border-bottom:1px solid var(--line); background:linear-gradient(90deg,#f4f6f8 25%,#fff 50%,#f4f6f8 75%); background-size:220% 100%; animation:proxy-loading 1.2s linear infinite; }
+    .proxy-editor { min-width:0; padding:24px; }
+    .proxy-editor-empty { min-height:420px; display:grid; place-items:center; color:var(--muted); text-align:center; }
+    .proxy-account-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+    .proxy-account-identity { min-width:0; }
+    .proxy-account-identity h2 { margin:0; font-size:18px; }
+    .proxy-account-identity p { margin:5px 0 0; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+    .proxy-safety { max-width:360px; margin:0; color:var(--muted); font-size:12px; line-height:1.55; text-align:right; }
+    .proxy-lifetime-notice { display:none; margin:16px 0 0; padding:11px 13px; border:1px solid #f0c36a; border-radius:7px; background:#fff8e8; color:#7a4b00; font-size:12px; line-height:1.55; }
+    .proxy-lifetime-notice.visible { display:block; }
+    .proxy-form { margin-top:22px; }
+    .proxy-fieldset { min-width:0; margin:0; padding:0; border:0; }
+    .proxy-fieldset legend { margin-bottom:9px; font-weight:650; }
+    .proxy-modes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding:4px; border:1px solid var(--line); border-radius:8px; background:#f4f6f8; }
+    .proxy-mode-option { min-width:0; position:relative; }
+    .proxy-mode-option input { position:absolute; opacity:0; pointer-events:none; }
+    .proxy-mode-option label { min-height:38px; display:grid; place-items:center; padding:7px 8px; border-radius:6px; color:var(--muted); font-weight:650; cursor:pointer; text-align:center; }
+    .proxy-mode-option input:checked + label { background:white; color:var(--ink); box-shadow:0 1px 3px rgba(25,33,43,.12); }
+    .proxy-mode-option input:focus-visible + label { outline:2px solid var(--focus); outline-offset:1px; }
+    .proxy-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:20px; }
+    .proxy-form-grid > * { min-width:0; }
+    .proxy-form-grid .field { margin:0; }
+    .proxy-form-grid .wide { grid-column:1 / -1; }
+    .proxy-field-note { display:block; margin-top:6px; color:var(--muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+    .refresh-line { display:flex; align-items:center; gap:12px; }
+    .refresh-line input { flex:1; min-width:100px; accent-color:var(--brand); }
+    .refresh-value { min-width:104px; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .refresh-estimate { display:block; margin-top:7px; color:#18794e; font-size:12px; font-weight:700; line-height:1.45; font-variant-numeric:tabular-nums; }
+    .proxy-feedback { min-height:42px; margin-top:18px; padding:11px 12px; border:1px solid var(--line); border-radius:7px; background:#f8fafb; color:var(--muted); line-height:1.45; overflow-wrap:anywhere; }
+    .proxy-actions { justify-content:flex-end; margin-top:16px; }
+    .proxy-actions .btn.primary { width:auto; }
+    [hidden] { display:none!important; }
+    @keyframes proxy-loading { to { background-position:-220% 0; } }
+    @media (max-width:980px) { .profile-form { grid-template-columns:repeat(2,minmax(0,1fr)); } .profile-actions { justify-content:flex-end; } }
+    @media (max-width:920px) { .proxy-workspace { grid-template-columns:minmax(0,1fr); } .proxy-accounts { max-height:320px; border-right:0; border-bottom:1px solid var(--line); } .proxy-editor { padding:20px; } }
+    @media (max-width:600px) { .page-actions { width:100%; align-items:stretch; flex-direction:column; } .page-actions .btn { width:100%; } .profile-head,.proxy-account-head { align-items:flex-start; flex-direction:column; } .profile-form,.proxy-modes,.proxy-form-grid { grid-template-columns:minmax(0,1fr); } .profile-form .wide,.proxy-form-grid .wide { grid-column:auto; } .profile-actions,.proxy-actions { align-items:stretch; flex-direction:column-reverse; } .profile-actions .btn,.proxy-actions .btn { width:100%; } .proxy-safety { max-width:none; text-align:left; } }
+    @media (prefers-reduced-motion:reduce) { .proxy-skeleton { animation:none; } }
+  </style>
+</head>
+<body>
+  <header class="shell-header"></header>
+  <main class="page proxy-page">
+    <div class="page-title">
+      <div><h1>代理设置</h1><p>集中维护提取链接，再为每个微信账号选择地区。</p></div>
+      <div class="page-actions"><a class="btn secondary" id="backToAccount" href="/">返回账号工作台</a><button class="btn secondary" id="reloadProxyPage" type="button">重新加载</button></div>
+    </div>
+    <section class="profile-band" id="profileBand" aria-labelledby="profileTitle">
+      <div class="profile-head"><div><h2 id="profileTitle">代理配置库</h2><p>集中保存品赞、巨量或静态代理预设，账号只需选择配置。动态提取为短效代理，不能用于账号保活。</p></div><select class="input" id="profilePicker" aria-label="选择代理配置"><option value="new">新增配置</option></select></div>
+      <form class="profile-form" id="profileForm">
+        <div class="field"><label for="profileName">配置名称</label><input class="input" id="profileName" maxlength="50" placeholder="例如：巨量代理 1" required></div>
+        <div class="field"><label for="profileProvider">配置类型</label><select class="input" id="profileProvider"><option value="ipzan">品赞</option><option value="juliang">巨量</option><option value="static">静态代理预设</option></select></div>
+        <div class="field"><label for="profileType">代理协议</label><select class="input" id="profileType"><option value="http">HTTP CONNECT</option><option value="socks5">SOCKS5</option></select></div>
+        <div class="field" id="profileAuthorizationField"><label for="profileAuthorization">授权方式</label><select class="input" id="profileAuthorization"><option value="auth">账号密码（推荐）</option><option value="whitelist">出口 IP 白名单</option></select></div>
+        <div class="field wide" id="profileURLField"><label for="profileURL" id="profileURLLabel">品赞提取链接</label><input class="input" id="profileURL" type="text" placeholder="https://service.ipzan.com/core-extract?..." autocomplete="off" spellcheck="false"></div>
+        <div class="field" id="juliangTradeField" hidden><label for="juliangTradeNo">巨量业务编号</label><input class="input" id="juliangTradeNo" inputmode="numeric" maxlength="32" autocomplete="off"></div>
+        <div class="field wide" id="juliangKeyField" hidden><label for="juliangAPIKey">巨量 API Key</label><input class="input" id="juliangAPIKey" type="password" maxlength="32" autocomplete="new-password" spellcheck="false"></div>
+        <div class="profile-actions"><button class="btn danger" id="deleteProfile" type="button" hidden>删除配置</button><button class="btn primary" id="saveProfile" type="submit">添加配置</button></div>
+      </form>
+      <div class="profile-feedback" id="profileFeedback" role="status">账号密码授权不依赖飞牛公网 IP；每个账号可独立选择省市。</div>
+    </section>
+    <section class="proxy-workspace" aria-label="账号代理管理">
+      <aside class="proxy-accounts" aria-label="微信账号列表">
+        <div class="proxy-list-head"><div class="proxy-list-title"><strong>微信账号</strong><span id="proxyAccountCount">正在加载</span></div><input class="input" id="proxyAccountSearch" type="search" placeholder="搜索备注、昵称或 ID" aria-label="搜索微信账号"></div>
+        <div class="proxy-list" id="proxyAccountList"><div class="proxy-skeleton"></div><div class="proxy-skeleton"></div><div class="proxy-skeleton"></div></div>
+      </aside>
+      <section class="proxy-editor" aria-label="代理配置编辑器">
+        <div class="proxy-editor-empty" id="proxyEditorEmpty">选择一个账号后管理代理。</div>
+        <div id="proxyEditor" hidden>
+          <div class="proxy-account-head"><div class="proxy-account-identity"><h2 id="proxyAccountName">未选择</h2><p id="proxyAccountMeta"></p></div><p class="proxy-safety">扫码与保活使用账号连接模式。小程序调用可单独选择直连，代理失败不会自动切换出口。</p></div>
+          <div class="proxy-lifetime-notice" id="proxyLifetimeNotice" role="status"></div>
+          <form class="proxy-form" id="proxyForm">
+            <fieldset class="proxy-fieldset"><legend>连接模式</legend><div class="proxy-modes">
+              <div class="proxy-mode-option"><input id="proxyModeDirect" name="proxyMode" type="radio" value="direct" checked><label for="proxyModeDirect">直连</label></div>
+              <div class="proxy-mode-option"><input id="proxyModeStatic" name="proxyMode" type="radio" value="static"><label for="proxyModeStatic">静态代理</label></div>
+              <div class="proxy-mode-option"><input id="proxyModeAPI" name="proxyMode" type="radio" value="api"><label for="proxyModeAPI">自定义 API</label></div>
+              <div class="proxy-mode-option"><input id="proxyModeProfile" name="proxyMode" type="radio" value="profile"><label for="proxyModeProfile">配置库</label></div>
+            </div></fieldset>
+            <div class="proxy-form-grid">
+              <div class="field" id="proxyTypeField"><label for="proxyType">代理协议</label><select class="input" id="proxyType"><option value="http">HTTP CONNECT</option><option value="socks5">SOCKS5</option></select></div>
+              <div class="field wide" id="staticProxyField" hidden><label for="staticProxy">代理地址</label><input class="input" id="staticProxy" placeholder="user:pass@127.0.0.1:8080" autocomplete="off" spellcheck="false"><span class="proxy-field-note">支持 IP:端口、用户名:密码@IP:端口及完整代理 URL。</span></div>
+              <div class="field wide" id="proxyAPIField" hidden><label for="proxyAPI">代理提取 API</label><input class="input" id="proxyAPI" type="url" placeholder="https://example.com/get?province=山东&city=济南" autocomplete="off" spellcheck="false"><span class="proxy-field-note">支持 txt、json、json2 和常见嵌套响应。</span><button class="btn secondary" id="importIPZan" type="button" hidden>导入为品赞配置</button></div>
+              <div class="field wide" id="profileSelectField" hidden><label for="accountProfile">供应商配置</label><select class="input" id="accountProfile"></select><span class="proxy-field-note">凭证在上方配置库统一维护；地区按账号分别保存。</span></div>
+              <div class="field" id="provinceField" hidden><label for="accountProvince">省份</label><select class="input" id="accountProvince"><option value="all">全国</option></select></div>
+              <div class="field" id="cityField" hidden><label for="accountCity">城市</label><select class="input" id="accountCity"><option value="">全国</option></select></div>
+              <div class="field wide" id="refreshField" hidden><label for="refreshAhead">提前刷新</label><div class="refresh-line"><input id="refreshAhead" type="range" min="5" max="90" step="5" value="5"><output class="refresh-value" id="refreshValue" for="refreshAhead">提前 5 分钟</output></div><strong class="refresh-estimate" id="refreshEstimate">预计约 115 分钟刷新一次</strong><span class="proxy-field-note" id="refreshBasis">按该账号应用宝返回的 120 分钟有效期计算。提前量越小，实际刷新周期越长，提取代理的次数越少。</span></div>
+              <div class="field wide"><label for="protocolProxyMode">小程序调用出口</label><select class="input" id="protocolProxyMode" aria-describedby="protocolProxyNote"><option value="account">跟随账号连接模式（默认）</option><option value="direct">直连</option></select><span class="proxy-field-note" id="protocolProxyNote">仅影响取码、手机号和小程序数据接口。扫码与保活仍用账号连接模式；不同出口不保证更稳定。“测试代理”只检测上方代理。</span></div>
+            </div>
+            <div class="proxy-feedback" id="proxyFeedback" role="status" aria-live="polite">正在读取代理配置。</div>
+            <div class="proxy-actions"><button class="btn secondary" id="testProxy" type="button">测试代理</button><button class="btn primary" id="saveProxy" type="submit">保存代理</button></div>
+          </form>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const $=id=>document.getElementById(id);
+    const state={accounts:[],configs:new Map(),profiles:[],provinces:[],cities:new Map(),selectedID:"",tokenTTLMinutes:120,editorVersion:0,editorAccountID:"",editorReady:false};
+    const modeLabels={direct:"直连",static:"静态",api:"短效 API · 不保活",profile:"配置库"};
+    const providerLabels={ipzan:"品赞",juliang:"巨量",static:"静态预设"};
+    const escapeHTML=value=>{const node=document.createElement("span");node.textContent=value??"";return node.innerHTML};
+    async function api(path,options={}){const response=await fetch(path,{headers:{"Content-Type":"application/json",...(options.headers||{})},...options});const text=await response.text();let payload;try{payload=text?JSON.parse(text):null}catch{throw new Error(`服务返回了非 JSON 内容（HTTP ${response.status}）`)}if(!payload)throw new Error(`服务返回空响应（HTTP ${response.status}）`);if(!response.ok||payload.code!==0)throw new Error(payload.msg||`请求失败（HTTP ${response.status}）`);return payload.data}
+    function accountName(account){return account.remark||account.nickname||account.alias||account.openid||"未命名账号"}
+    function accountNumber(account){const index=state.accounts.findIndex(item=>item.openid===account?.openid);return index>=0?index+1:"-"}
+    function currentAccount(){return state.accounts.find(account=>String(account.id)===state.selectedID)||null}
+    function currentMode(){return document.querySelector('input[name="proxyMode"]:checked')?.value||"direct"}
+    function currentProfile(){return state.profiles.find(profile=>String(profile.id)===$("profilePicker").value)||null}
+    function profileAuthorization(profile){try{return new URL(profile?.api_url||"").searchParams.get("mode")==="whitelist"?"whitelist":"auth"}catch{return "auth"}}
+    function juliangCredentials(profile){try{const url=new URL(profile?.api_url||"");return{tradeNo:url.searchParams.get("trade_no")||"",apiKey:url.searchParams.get("key")||""}}catch{return{tradeNo:"",apiKey:""}}}
+    function renderRefreshEstimate(){const ahead=Number($("refreshAhead").value)||5,ttl=state.tokenTTLMinutes||120,cycle=Math.max(1,ttl-ahead);$("refreshValue").textContent=`提前 ${ahead} 分钟`;$("refreshEstimate").textContent=`预计约 ${cycle} 分钟刷新一次`;$("refreshBasis").textContent=`按该账号应用宝返回的 ${ttl} 分钟有效期计算。提前量越小，实际刷新周期越长，提取代理的次数越少。动态代理只用于临时请求，系统不会用它做自动保活。`}
+    function setFeedback(message,kind=""){const node=$("proxyFeedback");node.textContent=message;node.className=`proxy-feedback ${kind}`.trim()}
+    function setProfileFeedback(message,kind=""){const node=$("profileFeedback");node.textContent=message;node.className=`profile-feedback ${kind}`.trim()}
+    function renderProfileOptions(){const options=state.profiles.map(profile=>`<option value="${profile.id}">${escapeHTML(profile.name)} · ${providerLabels[profile.provider]||escapeHTML(profile.provider)}</option>`).join("");$("profilePicker").innerHTML=`<option value="new">新增配置</option>${options}`;$("accountProfile").innerHTML=options||'<option value="">请先在上方添加配置</option>'}
+    function toggleProfileFields(){const provider=$("profileProvider").value,juliang=provider==="juliang",staticProxy=provider==="static";$("profileURLField").hidden=juliang;$("profileAuthorizationField").hidden=staticProxy;$("juliangTradeField").hidden=!juliang;$("juliangKeyField").hidden=!juliang;$("profileURL").required=!juliang;$("juliangTradeNo").required=juliang;$("juliangAPIKey").required=juliang;$("profileURLLabel").textContent=staticProxy?"静态代理地址":"品赞提取链接";$("profileURL").placeholder=staticProxy?"user:pass@127.0.0.1:8080":"https://service.ipzan.com/core-extract?...";setProfileFeedback(staticProxy?"静态预设会原样复用固定出口，可用于账号保活；请确认地址长期有效。":juliang?"巨量按账号省市动态签名，账号密码模式无需维护出口 IP 白名单。":"品赞账号密码模式会读取临时代理账号，不依赖飞牛公网 IP。")}
+    function editProfile(id){const profile=state.profiles.find(item=>String(item.id)===String(id)),credentials=juliangCredentials(profile);$("profilePicker").value=profile?String(profile.id):"new";$("profileName").value=profile?.name||"";$("profileProvider").value=profile?.provider||"ipzan";$("profileType").value=profile?.proxy_type||"http";$("profileAuthorization").value=profile?profileAuthorization(profile):"auth";$("profileURL").value=profile?.provider==="ipzan"||profile?.provider==="static"?profile.api_url||"":"";$("juliangTradeNo").value=credentials.tradeNo;$("juliangAPIKey").value=credentials.apiKey;$("deleteProfile").hidden=!profile;$("saveProfile").textContent=profile?"保存配置":"添加配置";toggleProfileFields()}
+    async function loadProfiles(){state.profiles=await api("/api/proxy-profiles");renderProfileOptions();editProfile("new")}
+    async function loadProvinces(){try{state.provinces=await api("/api/proxy-profiles/areas/provinces");$("accountProvince").innerHTML=state.provinces.map(area=>`<option value="${escapeHTML(area.code)}">${escapeHTML(area.name)}</option>`).join("")}catch(error){setProfileFeedback(`地区列表读取失败：${error.message}`,"error")}}
+    async function loadCities(province,selected="",editorVersion=null){if(!province||province==="all"){if(editorVersion===null||editorVersion===state.editorVersion)$("accountCity").innerHTML='<option value="">全国</option>';return true}let cities=state.cities.get(province);if(!cities){cities=await api(`/api/proxy-profiles/areas/cities?province=${encodeURIComponent(province)}`);state.cities.set(province,cities)}if(editorVersion!==null&&editorVersion!==state.editorVersion)return false;$("accountCity").innerHTML='<option value="">全省</option>'+cities.map(area=>`<option value="${escapeHTML(area.code)}">${escapeHTML(area.name)}</option>`).join("");$("accountCity").value=selected||"";return true}
+    function renderAccountList(){const query=$("proxyAccountSearch").value.trim().toLowerCase(),accounts=state.accounts.filter(account=>!query||accountName(account).toLowerCase().includes(query)||String(account.id).includes(query)||(account.openid||"").toLowerCase().includes(query));$("proxyAccountCount").textContent=`${state.accounts.length} 个账号`;$("proxyAccountList").innerHTML=accounts.map(account=>{const name=accountName(account),config=state.configs.get(String(account.id)),mode=config?(config.provider_profile_id?"profile":config.mode):"error";return `<button class="proxy-account" type="button" data-account-id="${account.id}" aria-pressed="${String(account.id)===state.selectedID}"><span class="proxy-account-avatar"><img src="/accounts/avatar?ref=${encodeURIComponent(account.id)}" alt=""><span hidden>${escapeHTML(Array.from(name)[0]||"Y")}</span></span><span class="proxy-account-copy"><strong>${escapeHTML(name)}</strong><small>ID ${account.id} · ${escapeHTML(account.status==="alive"?"可用":account.status==="expired"?"需重扫":"待确认")}</small></span><span class="proxy-mode-badge ${mode}">${modeLabels[mode]||"读取失败"}</span></button>`}).join("")||'<div class="proxy-list-empty">没有符合条件的账号。</div>';$("proxyAccountList").querySelectorAll("img").forEach(image=>image.addEventListener("error",()=>{image.hidden=true;image.nextElementSibling.hidden=false}))}
+    function toggleFields(){const mode=currentMode(),dynamic=mode==="api"||mode==="profile";$("proxyTypeField").hidden=mode==="direct"||mode==="profile";$("staticProxyField").hidden=mode!=="static";$("proxyAPIField").hidden=mode!=="api";$("profileSelectField").hidden=mode!=="profile";$("provinceField").hidden=mode!=="profile";$("cityField").hidden=mode!=="profile";$("refreshField").hidden=!dynamic;$("staticProxy").required=mode==="static";$("proxyAPI").required=mode==="api";$("accountProfile").required=mode==="profile"}
+    async function fillEditor(account,config){const version=++state.editorVersion;state.editorReady=false;state.editorAccountID="";$("proxyEditorEmpty").hidden=true;$("proxyEditor").hidden=false;$("proxyAccountName").textContent=accountName(account);$("proxyAccountMeta").textContent=`账号 ID ${account.id} · OpenID ${account.openid}`;const notice=$("proxyLifetimeNotice");notice.textContent=config?.proxy_warning||"";notice.classList.toggle("visible",Boolean(config?.proxy_warning));setFeedback("正在读取账号代理配置。");const mode=config?.provider_profile_id?"profile":config?.mode||"direct";(document.querySelector(`input[name="proxyMode"][value="${mode}"]`)||$("proxyModeDirect")).checked=true;$("protocolProxyMode").value=config?.protocol_proxy_mode||"account";$("proxyType").value=config?.proxy_type||"http";$("staticProxy").value=config?.static_proxy||"";$("proxyAPI").value=config?.api_url||"";$("accountProfile").value=config?.provider_profile_id?String(config.provider_profile_id):state.profiles[0]?String(state.profiles[0].id):"";const provinceCode=config?.region_code&&config.region_code!=="all"?`${config.region_code.slice(0,2)}0000`:"all";$("accountProvince").value=provinceCode;try{if(!await loadCities(provinceCode,config?.region_code||"",version))return}catch(error){if(version===state.editorVersion)setFeedback(`城市列表读取失败：${error.message}`,"error");return}if(version!==state.editorVersion||state.selectedID!==String(account.id))return;$("refreshAhead").value=String(config?.refresh_ahead_minutes||5);state.tokenTTLMinutes=Number(config?.token_ttl_minutes)||120;renderRefreshEstimate();let isIPZan=false;try{isIPZan=new URL(config?.api_url||"").hostname==="service.ipzan.com"}catch{}$("importIPZan").hidden=!isIPZan||Boolean(config?.provider_profile_id);toggleFields();state.editorAccountID=String(account.id);state.editorReady=true;const profile=state.profiles.find(item=>item.id===config?.provider_profile_id),provider=providerLabels[profile?.provider]||"供应商";setFeedback(config?.configured?(profile?`已使用 ${profile.name}（${provider}），地区 ${config.region_city||config.region_province||"全国"}。`:`${modeLabels[mode]}已启用。`):"当前账号使用直连。","ok")}
+    async function selectAccount(id,updateURL=true){const account=state.accounts.find(item=>String(item.id)===String(id));if(!account)return;state.editorVersion++;state.editorReady=false;state.editorAccountID="";state.selectedID=String(account.id);renderAccountList();if(updateURL)history.replaceState(null,"",`/proxies?ref=${encodeURIComponent(account.id)}`);setReturnLink(account.id);let config=state.configs.get(state.selectedID);if(!config){setFeedback("正在读取代理配置。");try{config=await api(`/accounts/proxy?ref=${encodeURIComponent(account.id)}`);state.configs.set(String(account.id),config)}catch(error){if(state.selectedID===String(account.id))setFeedback(`读取失败：${error.message}`,"error");return}}if(state.selectedID===String(account.id))await fillEditor(account,config)}
+    function setReturnLink(id){const requested=new URLSearchParams(location.search).get("return");$("backToAccount").href=requested&&requested.startsWith("/")&&!requested.startsWith("//")?requested:`/?ref=${encodeURIComponent(id)}`}
+    function proxyPayload(){const account=currentAccount(),mode=currentMode(),profileMode=mode==="profile",city=$("accountCity").value,province=$("accountProvince"),provinceName=province.options[province.selectedIndex]?.text||"";return{ref:String(account.id),mode:profileMode?"api":mode,protocol_proxy_mode:$("protocolProxyMode").value,proxy_type:$("proxyType").value,static_proxy:$("staticProxy").value.trim(),api_url:$("proxyAPI").value.trim(),provider_profile_id:profileMode&&$("accountProfile").value?Number($("accountProfile").value):null,region_code:profileMode?(city||province.value):"",region_province:profileMode&&province.value!=="all"?provinceName:"",region_city:profileMode&&city?$("accountCity").options[$("accountCity").selectedIndex]?.text||"":"",refresh_ahead_minutes:Number($("refreshAhead").value)}}
+    async function loadPage(){$("proxyAccountList").innerHTML='<div class="proxy-skeleton"></div><div class="proxy-skeleton"></div><div class="proxy-skeleton"></div>';await Promise.all([loadProfiles(),loadProvinces()]);state.accounts=await api("/accounts");state.configs.clear();await Promise.all(state.accounts.map(async account=>{try{state.configs.set(String(account.id),await api(`/accounts/proxy?ref=${encodeURIComponent(account.id)}`))}catch{}}));const requested=new URLSearchParams(location.search).get("ref"),initial=state.accounts.find(account=>String(account.id)===String(requested))||state.accounts[0];state.selectedID=initial?String(initial.id):"";renderAccountList();if(initial){setReturnLink(initial.id);await fillEditor(initial,state.configs.get(state.selectedID))}else{$("proxyEditor").hidden=true;$("proxyEditorEmpty").hidden=false;$("proxyEditorEmpty").textContent="暂无账号，请先添加微信账号。"}}
+    $("profilePicker").addEventListener("change",event=>editProfile(event.target.value));
+    $("profileProvider").addEventListener("change",toggleProfileFields);
+    $("profileForm").addEventListener("submit",async event=>{event.preventDefault();const current=currentProfile(),button=$("saveProfile"),provider=$("profileProvider").value;button.disabled=true;setProfileFeedback(current?"正在保存配置。":"正在添加配置。");try{const authorization=$("profileAuthorization").value,body={name:$("profileName").value.trim(),provider,proxy_type:$("profileType").value,authorization_mode:authorization,api_url:provider==="ipzan"||provider==="static"?$("profileURL").value.trim():"",trade_no:provider==="juliang"?$("juliangTradeNo").value.trim():"",api_key:provider==="juliang"?$("juliangAPIKey").value.trim():""},saved=await api(current?`/api/proxy-profiles/${current.id}`:"/api/proxy-profiles",{method:current?"PUT":"POST",body:JSON.stringify(body)});await loadProfiles();$("profilePicker").value=String(saved.id);editProfile(saved.id);const supplier=providerLabels[saved.provider]||saved.provider;setProfileFeedback(provider==="static"?`已保存 ${saved.name}（${supplier}），账号可直接选择此固定出口。`:authorization==="auth"?`已保存 ${saved.name}（${supplier}），使用临时代理账号密码。`:`已保存 ${saved.name}（${supplier}），请确保飞牛公网 IP 已在供应商白名单。`,"ok");if(currentAccount())await fillEditor(currentAccount(),state.configs.get(state.selectedID))}catch(error){setProfileFeedback(`保存失败：${error.message}`,"error")}finally{button.disabled=false}});
+    $("deleteProfile").addEventListener("click",async()=>{const profile=currentProfile();if(!profile||!confirm(`删除“${profile.name}”？`))return;try{await api(`/api/proxy-profiles/${profile.id}`,{method:"DELETE"});await loadProfiles();setProfileFeedback("配置已删除。","ok")}catch(error){setProfileFeedback(`删除失败：${error.message}`,"error")}});
+    $("importIPZan").addEventListener("click",()=>{const account=currentAccount();$("profilePicker").value="new";editProfile("new");$("profileName").value=`${accountName(account)}的品赞代理`;$("profileType").value=$("proxyType").value;$("profileURL").value=$("proxyAPI").value;$("profileBand").scrollIntoView({behavior:"smooth",block:"start"});setProfileFeedback("已带入当前链接，请确认名称后添加配置。")});
+    $("proxyAccountList").addEventListener("click",event=>{const button=event.target.closest("[data-account-id]");if(button)selectAccount(button.dataset.accountId)});$("proxyAccountSearch").addEventListener("input",renderAccountList);document.querySelectorAll('input[name="proxyMode"]').forEach(input=>input.addEventListener("change",toggleFields));$("accountProvince").addEventListener("change",event=>loadCities(event.target.value).catch(error=>setFeedback(`城市列表读取失败：${error.message}`,"error")));$("refreshAhead").addEventListener("input",renderRefreshEstimate);
+    $("testProxy").addEventListener("click",async()=>{if(!currentAccount()||!$("proxyForm").reportValidity())return;if(!state.editorReady||state.editorAccountID!==state.selectedID){setFeedback("账号配置仍在读取，请稍后再试。","error");return}const button=$("testProxy");button.disabled=true;setFeedback("正在提取并校验代理出口。");try{const result=await api("/accounts/proxy/test",{method:"POST",body:JSON.stringify(proxyPayload())});const exit=result.exit_region||result.exit_city?`${result.exit_region||""}${result.exit_city||""}`:"";setFeedback(result.resolved?exit?`代理可用：实际出口 ${exit}${result.exit_ip?` · ${result.exit_ip}`:""}；入口节点 ${result.proxy}`:`已提取入口节点 ${result.proxy}，实际出口检测失败${result.probe_error?`：${result.probe_error}`:""}`:"直连模式无需代理。",result.resolved&&!result.probe_error?"ok":"error")}catch(error){setFeedback(`代理测试失败：${error.message}`,"error")}finally{button.disabled=false}});
+    $("proxyForm").addEventListener("submit",async event=>{event.preventDefault();const account=currentAccount();if(!account)return;if(!state.editorReady||state.editorAccountID!==state.selectedID){setFeedback("账号配置仍在读取，未执行保存。","error");return}const previous=state.configs.get(state.selectedID),next=proxyPayload();if(previous?.configured&&next.mode==="direct"&&!confirm(`账号 ${account.id} 当前使用代理，确定切换为直连吗？`))return;const button=$("saveProxy");button.disabled=true;setFeedback("正在保存代理配置。");try{const savedID=state.selectedID,config=await api("/accounts/proxy",{method:"PUT",body:JSON.stringify(next)});state.configs.set(savedID,config);renderAccountList();if(state.selectedID===savedID)await fillEditor(account,config);setFeedback(config.configured?"代理已保存，会话缓存已重建。":"已切换为直连，会话缓存已重建。","ok")}catch(error){setFeedback(`保存失败：${error.message}`,"error")}finally{button.disabled=false}});
+    $("reloadProxyPage").addEventListener("click",()=>loadPage().catch(error=>{$("proxyAccountList").innerHTML=`<div class="proxy-list-empty">加载失败：${escapeHTML(error.message)}</div>`}));loadPage().catch(error=>{$("proxyAccountCount").textContent="加载失败";$("proxyAccountList").innerHTML=`<div class="proxy-list-empty">${escapeHTML(error.message)}</div>`});
+  </script>
+  <script src="/static/js/platform.js?v=20260930-console"></script>
+</body>
+</html>

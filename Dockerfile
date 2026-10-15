@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS build
+
+ARG VERSION=0.2.30
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG TARGETOS=linux
+ARG TARGETARCH
+
+WORKDIR /src
+ENV GOPROXY=https://goproxy.cn,direct
+
+COPY go.mod go.sum ./
+RUN for attempt in 1 2 3; do \
+      if go mod download; then exit 0; fi; \
+      if [ "$attempt" = 3 ]; then exit 1; fi; \
+      sleep $((attempt * 5)); \
+    done
+
+COPY cmd ./cmd
+COPY internal ./internal
+COPY resource ./resource
+RUN go test ./...
+RUN test -n "$TARGETARCH" \
+    && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X yyb_go/internal/version.Version=${VERSION} -X yyb_go/internal/version.Commit=${COMMIT} -X yyb_go/internal/version.BuildDate=${BUILD_DATE}" -o /out/yyb-go ./cmd/yyb-go
+
+FROM alpine:3.21
+ARG VERSION=0.2.30
+LABEL org.opencontainers.image.version=$VERSION
+
+RUN apk add --no-cache ca-certificates tzdata wget \
+    && addgroup -S yyb \
+    && adduser -S -G yyb -h /app yyb
+
+WORKDIR /app
+ENV TZ=Asia/Shanghai
+COPY --from=build /out/yyb-go /app/yyb-go
+COPY resource /tmp/resource-src
+
+RUN mkdir -p /app/resource \
+    && cp -R /tmp/resource-src/. /app/resource/ \
+    && chown -R yyb:yyb /app/resource \
+    && find /app/resource -type d -exec chmod 755 {} + \
+    && find /app/resource -type f -exec chmod 644 {} + \
+    && rm -rf /tmp/resource-src
+
+USER yyb
+EXPOSE 8000
+
+ENTRYPOINT ["/app/yyb-go"]
+CMD ["-host", "0.0.0.0", "-port", "8000", "-resource-root", "/app/resource"]

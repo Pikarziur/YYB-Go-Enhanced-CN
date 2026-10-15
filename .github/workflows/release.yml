@@ -1,0 +1,157 @@
+name: windows-amd64 二进制构建与发布
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本号 (例如 0.2.30，留空则读取 VERSION 文件)'
+        required: false
+        type: string
+      publish_release:
+        description: '创建或更新对应的 GitHub Release'
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+      - 'VERSION'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'resource/**'
+      - 'Dockerfile'
+      - 'tools/release_notes.py'
+      - 'tests/test_release_notes.py'
+      - 'CHANGELOG.md'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-amd64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 带重试机制检出代码仓库
+        run: |
+          set -Eeuo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          for attempt in 1 2 3; do
+            if git fetch --depth=1 origin "$GITHUB_SHA" && git checkout --force --detach FETCH_HEAD; then
+              exit 0
+            fi
+            [[ "$attempt" == 3 ]] && exit 1
+            sleep $((attempt * 10))
+          done
+
+      - name: 解析待发布的版本号与标签
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
+        run: |
+          set -Eeuo pipefail
+          publish=false
+
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            tag="$GITHUB_REF_NAME"
+            publish=true
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${INPUT_VERSION:-}" ]]; then
+            version="$INPUT_VERSION"
+            tag="v$version"
+            publish="${INPUT_PUBLISH_RELEASE:-true}"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$(tr -d '[:space:]' < VERSION)"
+            tag="v$version"
+            publish="${INPUT_PUBLISH_RELEASE:-true}"
+          else
+            version="$(tr -d '[:space:]' < VERSION)"
+            tag=""
+          fi
+
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+            echo "版本号必须是 SemVer 格式（例如 0.2.30 或 0.2.30-rc.1）：$version" >&2
+            exit 2
+          }
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 生成本版本 Release 更新说明
+        if: steps.version.outputs.publish == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -Eeuo pipefail
+          python3 ./tools/release_notes.py \
+            --version "$RELEASE_VERSION" \
+            --tag "$RELEASE_TAG" \
+            --kind full \
+            --repository "$GITHUB_REPOSITORY" \
+            --output "$RUNNER_TEMP/release-notes.md"
+          cat "$RUNNER_TEMP/release-notes.md"
+
+      - name: 测试并构建 windows/amd64 二进制
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          COMMIT: ${{ github.sha }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp || '' }}
+        run: |
+          set -Eeuo pipefail
+          go version
+          command -v zip
+          command -v sha256sum
+          python3 -m unittest tests.test_release_notes -v
+          go test ./...
+          bash ./scripts/build-release.sh windows-amd64
+
+          (
+            cd dist
+            rm -f checksums.txt
+            sha256sum -- * > checksums.txt
+          )
+
+      - name: 发布产物至 GitHub Release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -Eeuo pipefail
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo ">> Release $RELEASE_TAG 已存在，正在更新说明并覆盖产物..."
+            gh release edit "$RELEASE_TAG" \
+              --title "v${{ steps.version.outputs.version }}" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+          else
+            echo ">> 创建全新 Release: $RELEASE_TAG..."
+            gh release create "$RELEASE_TAG" dist/* \
+              --target "$GITHUB_SHA" \
+              --title "v${{ steps.version.outputs.version }}" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
+
+      - name: 汇总持续集成构建结果
+        if: steps.version.outputs.publish != 'true'
+        run: |
+          set -Eeuo pipefail
+          echo "windows/amd64 二进制构建与校验完成；持续集成不上传临时产物。"
+          cat dist/checksums.txt
