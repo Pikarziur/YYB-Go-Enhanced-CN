@@ -50,7 +50,8 @@ jobs:
           # Manual dispatch only: an explicit version input wins, otherwise fall
           # back to the VERSION file so the repo stays the single source.
           if [[ -n "${INPUT_VERSION:-}" ]]; then
-            version="$INPUT_VERSION"
+            # Accept both 0.2.32 and v0.2.32 so the input can be pasted either way.
+            version="${INPUT_VERSION#v}"
           else
             version="$(tr -d '[:space:]' < VERSION)"
           fi
